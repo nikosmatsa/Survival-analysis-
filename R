@@ -1,0 +1,647 @@
+---
+title: Survival Analysis 2nd Series of Exercises in MS.c NTUA Applied Mathematical
+  Sciences
+author: "Nikos Matsavelas EME:09419011"
+date: "24/4/2020"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+---
+Course : Survival Analysis
+MSc Applied Mathematical Sciences 
+Flow:Probability $\&$ Statistics
+Professor : Dr.Chrysseis Caroni
+
+
+## Question 1 
+
+The Log-Normal Survival function for a mission of time $t$ , starting at $t= 0$, for the log-normal distribution is determined by:
+
+$$S(t) = \int_{t}^{\infty}f(t)dt$$ or 
+$$S(t) = \int_{\ln(t)}^{\infty} \frac{1}{\sigma t \sqrt{2\pi}} \exp -\frac{1}{2}\left( \frac{(x-\mu)^2}{\sigma} \right)dx$$ or 
+
+$$S(t)=   1- \Phi \left(\frac{\log(t)-\mu}{\sigma}\right)$$
+In the other hand the p.d.f of log normal is : 
+
+$$ f(t) = \frac{1}{\sigma t \sqrt{2\pi}} \exp \left(\frac{  -(\log(t)-\mu)^2}{2\sigma^2} \right) $$
+
+Combining them together to calculate the log-likelihood for right censor obseravations we have:
+
+$$l(\mu,\sigma) = \prod_{i=1}^{n}\{ \left[f(t,\mu,\sigma) \right]^{c_{i}} \times \left[S(t,\mu,\sigma) \right]^{1-c_{i}}  \}$$
+where 
+
+\[c= 
+\begin{cases}
+    0,& \text{for non-censored observations}\\
+    1,              & \text{otherwise}
+\end{cases}\]
+
+\begin{align*}
+L(\mu,\sigma)  &= \sum_{i=1}^{n} \{ c_{i} \log \left[ f(t,\mu,\sigma) \right] + (1-c_{i}) \log \left[ S(t,\mu,\sigma) \right] \}\\
+&= \sum_ {i=1}^{n} \{c_{i} \log \left[
+\frac{1}{\sigma t \sqrt{2\pi}} \exp{\frac{-(\log(t)-\mu)^2}{2\sigma^2}}
+\right] + (1-c_{i}) \log \left[ 1- \Phi \left(\frac{\log(t)-\mu}{\sigma}\right) \right] \}    \\
+&= \sum_ {i=1}^{n} \{c_{i} \left[-\log(t \sigma \sqrt{2 \pi})\frac{-(\log(t)-\mu)^2}{2\sigma^2}  \right] + (1-c_{i}) \log \left[ 1- \Phi \left(\frac{\log(t)-\mu}{\sigma}\right) \right]   \} \\ &= \sum_ {i=1}^{n} \{ c_{i} \left[ -\log(\sigma)-\log(t) +\frac{1}{2}-\log(2)-\log(\pi) \frac{-(\log(t)-\mu)^2}{2\sigma^2}  \right] + (1-c_{i}) \log \left[ 1- \Phi \left(\frac{\log(t)-\mu}{\sigma}\right) \right]   \} \\
+&= \sum_ {i=1}^{n} \{ c_{i} \left[\frac{((\mu - \log(t))^2 \log(\sqrt(2 \pi) t \sigma))}{\sigma}\right] + (1-c_{i}) \log \left[ 1- \Phi \left(\frac{\log(t)-\mu}{\sigma}\right) \right] 
+\end{align*}
+
+As with the normal distribution, there is no closed-form solution for the lognormal survival function as well for the log-likelihood.
+
+For $S(t)$ solutions can be obtained via the use of standard normal tables.
+
+
+## Load Libraries 
+
+
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(survival))
+suppressPackageStartupMessages(library(survminer))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(parmsurvfit))
+suppressPackageStartupMessages(library(flexsurv))
+```
+
+## Question 2
+
+## Sub-Question 2.1
+
+## Data Entry 
+
+```{r}
+days  = c(468,725,838,853,965,1139,1142,1304,1317,1427,
+          1554,1658,1764,1776,1990,2010,2224,2244,2279,2289)
+event = c(1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0)
+dat   = data.frame(days,event) ;dat
+```
+
+
+## Non- Parametric Kaplan-Meier Estimator for Survival probabilities
+
+```{r}
+surv.model = Surv(time = dat$days,event = dat$event)
+surv.model
+survival.model = survfit(Surv(dat$days,dat$event)~1)
+survival.model
+surv_median(survival.model)
+ggsurvplot(survival.model, data = dat,
+           surv.median.line = "hv", 
+           legend.title = "Type",
+           conf.int = TRUE,
+           pval = TRUE,
+           risk.table = TRUE,
+           tables.height = 0.2,
+           tables.theme = theme_cleantable(),
+           palette = c("#E7B800", "#2E9FDF"),
+           ggtheme = theme_bw() )
+```
+
+
+
+## Sub-Question 2.2
+
+
+```{r}
+
+result.km = survfit(Surv(time = days,event = event) ~ 1,data = dat)
+survEst   = result.km$surv
+survTime  =  result.km$time 
+logLogSurvEst =  log(-log(survEst)) 
+logSurvTime   =  log(survTime)
+dt = data.frame(logLogSurvEst,logSurvTime,survEst,survTime)
+```
+
+## Graphical Comparison with Exponential Distribution
+
+$\log[\hat S(t)]$ versus $t$
+
+```{r}
+
+ggplot(data=dt,(mapping=aes(y=log(survEst),x=survTime)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Graphical Comparison with Weibull Distribution
+$\log[-\log\hat S(t)]$ versus $t$
+
+```{r}
+ggplot(data=dt,(mapping=aes(y=logLogSurvEst,x=logSurvTime)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Graphical Comparison with Log-Normal Distribution
+$\Phi^{-1}(1-\hat S(t))$  versus $\log(t)$
+```{r}
+ggplot(data=dt,(mapping=aes(y=qnorm((survEst),lower.tail = FALSE),x=logSurvTime)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Graphical Comparison with Log-Logistic Distribution
+$$\log \left[\frac{1-\hat S(t)}{\hat S(t)} \right] - \log(t)$$
+
+```{r}
+ggplot(data=dt,(mapping=aes(y=log(pnorm(survEst))/pnorm(survEst,lower.tail = FALSE),x=survTime))) +geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+
+## Comments
+
+ There is an indication that a Weibull and Log - Normal distribution  may be appropriate parametric candidates for these data, since the points  do  follow a linear relationship,since we have extracted 
+the survival probabilities estimates and the survival time variables from “result.km” object 
+and transform the former with a complementary log-log transformation
+and  log transformation and we finally have regress them according to the relationship.
+
+
+
+
+## Sub-Question 2.3
+
+## Parametric Regression Models for different distributions 
+
+## Exponential 
+```{r}
+
+mod1 = survreg(Surv(days,event)~1,data=dat,dist="exponential")
+summary(mod1)
+```
+
+## Weibull
+
+```{r}
+mod2 = survreg(Surv(days,event)~1,data=dat,dist="weibull")
+summary(mod2)
+```
+
+## Log-Normal
+
+```{r}
+mod3 = survreg(Surv(days,event)~1,data=dat,dist="lognormal")
+summary(mod3)
+```
+
+## Log-Logistic
+
+```{r}
+mod4 = survreg(Surv(days,event)~1,data=dat,dist="loglogistic")
+summary(mod4)
+```
+
+
+
+## Plotting the $\hat S(t_{i},\theta)$-ML versus $\hat S(t_{i})$ - Kaplan Meier estimations
+
+
+## Comparison with Exponential ML  
+
+R has computational ability up to $\exp(720)$. If the exponentiate number exceeds $>720$ then we have overflow.Due to that and since the majority of all the survival times are greater than $>720$ we have divided the survival times with $100$ in order to calculate the survival probabilities for the exponential fit.
+For the log-logistic parametric fit we used the logistic fit and we took the log scale of the given times.Weibull and log-normal fit worked fine.
+For exponential and log-logistic we don't need to rescale them again because the package parmsurvfit does the rescaling automatically  ($\times 100$).
+
+
+```{r}
+days2 = days/100
+daysl = log(days)
+da2 = data.frame(days2,event,daysl)
+da2
+plot_ppsurv(da2,"exp",time="days2",censor="event")
+```
+
+
+## Comparison with Weibull ML  
+
+```{r}
+plot_ppsurv(dat,dist="weibull",time="days",censor="event")
+```
+
+## Comparison with Log-Normal ML
+
+```{r}
+plot_ppsurv(dat,dist="lnorm"  ,time="days",censor="event")
+```
+
+## Comparison with Log-Logistic ML
+
+```{r}
+plot_ppsurv(da2,"logis",time="daysl",censor="event")
+```
+
+## Comments on Ml graphs
+The exponential MLEmodel, does not appear to fit well with the non parametric KL estimates times as
+the  log-normal and weibull maximum likelihood estimations do.Graphically those MLE appear to fit better the data versus  the non-parametric KM estimations
+
+
+## Sub-Question 2.4
+
+$$A = -n -\frac{1}{n} \sum_{i=1}^{n} [2i-1] [\log(p_{(i)}) + \log(1 - p_{(n-i+1)})]$$
+
+
+## Anderson - Darling Test for Exponential
+
+```{r}
+AD1 = compute_AD(data = da2, 
+           dist = "exp", 
+           time = "days2", 
+           censor = "event")
+```
+
+
+## Anderson - Darling Test for Weibull
+
+```{r}
+AD2 = compute_AD(data = dat, 
+           dist = "weibull", 
+           time = "days", 
+           censor = "event")
+```
+
+## Anderson - Darling Test for Log-Normal
+
+
+```{r}
+AD3 = compute_AD(data = dat, 
+           dist = "lnorm", 
+           time = "days", 
+           censor = "event")
+```
+
+## Anderson - Darling Test for Log-Logistic
+
+
+```{r}
+AD4 = compute_AD(data = da2, 
+           dist = "logis", 
+           time = "daysl", 
+           censor = "event")
+```
+
+## Anderson - Darling Test Comparison
+
+```{r}
+ad = rbind(AD1,AD2,AD3,AD4);ad
+```
+
+
+## Comments on AD-tests
+
+The lower value of the Ad Test is from weibull and then from log-normal
+
+
+## Penalized Likelihood Akaike Information Criterion Evaluation & Comparison
+
+$$AIC = -2 D(\hat \theta_{m},m)+2d_{m}$$
+
+where $D(\hat \theta_{m},m)$ is the deviance of the model and $d_{m}$ is the number of the estimated parameters of the model.
+
+
+```{r}
+penaltyAIC1 = length(mod1$coefficients)
+dev1 = mod1$loglik[1]
+Aic1 = (-2*dev1) + (2*penaltyAIC1)
+penaltyAIC2 = length(mod2$coefficients)
+dev2 = mod2$loglik[1]
+Aic2 = (-2*dev2) + (2*penaltyAIC2)
+penaltyAIC3 = length(mod3$coefficients)
+dev3 = mod3$loglik[1]
+Aic3 = (-2*dev3) + (2*penaltyAIC3)
+penaltyAIC4 = length(mod4$coefficients)
+dev4 = mod4$loglik[1]
+Aic4 = (-2*dev4) + (2*penaltyAIC4)
+AkaikeIC = rbind(Aic1,Aic2,Aic3,Aic4);AkaikeIC
+```
+
+## Comments on AIC
+
+The lower value of the AIC is from log-normal distribution  which is an additional indicator that log-normal is the appropriate distribution for the specific data.
+
+## Sub-Question 2.5
+
+```{r}
+summary(mod2)
+fitw <- flexsurvreg(formula = Surv(time = days,event = event) ~ 1,data = dat, dist="weibull") 
+fitw
+```
+
+Testing the statistical significance of the scale parameter $\eta$ in the weibull model we have to compute the Wald Test : 
+$$Z_{w} = \frac{\hat \beta}{se(\hat \beta)}$$
+
+$$Z_{w}^2 \sim X^2_{\alpha,1} $$
+
+
+
+We have the following hypotheses: 
+$$H_{0}: \eta = 1 $$ with alternative 
+$$H_{1}: \eta \neq 1 $$ 
+
+The fitw model from the flexsurv package report us the $\eta$ parameter : $2.576$ with s.e$=0.522$ 
+```{r}
+1-pchisq( (2.576/0.522)^2,1)
+```
+
+or equivalently
+
+from the survival package 
+$$H_{0}: log(\eta) = 0 $$ with alternative 
+$$H_{1}: \log(\eta) \neq 0 $$
+
+
+R reports the p.value for Wald test for $\eta = 8.020585e-07$ and for $\log(\eta)$  
+
+```{r}
+1-pchisq( (-0.946/0.203)^2,1)
+```
+
+
+$3.1e-06$ 
+Both tests have much lower p.value than $a=0.05$.So there is strong evidence against the null hypothesis that $\eta = 1$ 
+or $\log(\eta)=0$.
+
+
+## Confidence interval for  parameter $\hat \beta$
+
+$$\hat \beta \pm 1.96 \cdot se(\hat \beta)$$
+
+
+```{r}
+confint(mod2)
+```
+
+$$\exp\left[\hat \beta \pm 1.96 \cdot se(\hat \beta)\right]$$
+
+```{r}
+exp(confint(mod2))
+```
+## Confidence interval for  parameter $\hat \eta$
+
+In normal scale we see that 1 is included so correctly we have rejected the null hypothesis.
+
+```{r}
+(confint(fitw))
+```
+Also in log scale we see that 0 that gives us additional conclusions to the previous one. 
+
+```{r}
+log(confint(fitw))
+```
+
+## Question 3 
+
+## Load the Lung-Patients Data 
+
+```{r}
+
+dat2 = read.table("/Users/nikosmatsavelas/Desktop/NTUA 2nd Semester/Survival Analysis/lung-patients.txt",header = TRUE)
+dat2
+```
+
+
+## Sub-Question 3.1
+
+## Non- Parametric Kaplan-Meier Estimator for Survival probabilities
+
+```{r}
+surv.model2 = Surv(time = dat2$t,event = dat2$c)
+surv.model2
+survival.model2 = survfit(Surv(time = t,event = c) ~ Group,data = dat2)
+survival.model2
+summary(survival.model2)
+```
+
+
+from the Survival plot we can see that the group 2 has lower survival times (exit from oxygen) than group 1.
+
+
+
+```{r}
+ggsurvplot(survival.model2, data = dat2,
+           surv.median.line = "hv", 
+           legend.title = "Type",
+           legend.labs = c("Group 1 ", "Group 2 "),
+           pval = TRUE,
+           conf.int = TRUE,
+           risk.table = TRUE,
+           tables.height = 0.2,
+           tables.theme = theme_cleantable(),
+           palette = c("#E7B800", "#2E9FDF"),
+           ggtheme = theme_bw() )
+
+```
+
+
+## Sub-Question 3.2
+
+## Log - Rank Test 
+
+Log - rank statistic: $$ \frac{(O_{i}-E_{i})^2}{Var(O_{i} -E_{i})} \approx X^2 $$
+R reports the $x^2$ statistic to be $5.6$ with 1 degree of freedom.
+
+```{r}
+1-pchisq(5.6,1)
+```
+
+
+The null hypothesis is:
+ $$H_{0} : S(t_{1})= S(t_{2})$$ with the alternative:
+ $$H_{1} : S(t_{1}) \neq S(t_{2})$$ that the survival probabilities are different across Group 1 & 2. 
+Log-Rank test has $p.value \approx 0.02 < 0.05$.
+ The null hypothesis has  been rejected in 
+ statistical confidence level a = 0.05
+ So we conclude that there is  difference 
+ in the survival probabilities between 
+ Group 1 & 2.
+ Alternatively the null hypothesis  of the Log-Rank test 
+ is that the ratio of the hazard rates in the two groups is equal to 1
+ which is also rejected under Ho.So groups have the same  harard rates.
+
+
+
+```{r}
+survdiff(Surv(time = dat2$t,event = dat2$c)~Group,data=dat2)
+```
+
+## Wilcoxon Test 
+
+```{r}
+survdiff(Surv(time = dat2$t,event = dat2$c)~Group,data=dat2,rho=1)
+```
+
+
+## Median Survival Time 
+
+```{r}
+surv_median(survival.model2)
+```
+
+The large skew encountered in the distribution of most survival data  is the reason that the mean is not often used
+ When $S(t_{1}) = 0.50$ then the estimated survival time equals 107  days for Group 1 
+ When $S(t_{2}) = 0.50$ then the estimated survival time equals 71 days  for Group 2 
+
+
+
+
+
+## Sub-Question 3.3
+
+
+```{r}
+result.km2 = survfit(Surv(time = t,event = c) ~ Group,data = dat2)
+survEst2   = result.km2$surv
+survTime2  =  result.km2$time 
+logLogSurvEst2 =  log(-log(survEst2)) 
+logSurvTime2   =  log(survTime2)
+dt2 = data.frame(logLogSurvEst2,logSurvTime2,survEst2,survTime2)
+```
+
+## Graphical Comparison with Weibull 
+
+$\log[-\log\hat S(t)]$  versus $t$
+
+```{r}
+ggplot(data=dt2,(mapping=aes(y=logLogSurvEst2,x=logSurvTime2)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Graphical Comparison with Log-Normal 
+
+$\Phi^{-1}(1-\hat S(t))$  versus $\log(t)$
+
+
+```{r}
+ggplot(data=dt2,(mapping=aes(y=qnorm((survEst2),lower.tail = FALSE),x=logSurvTime2)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Survival Parametric Regression Models 
+
+```{r}
+m1.1 = survreg(Surv(time = t,event = c) ~ Group,data = dat2,dist = "exponential")
+m2.1 = survreg(Surv(time = t,event = c) ~ Group,data = dat2,dist = "lognormal")
+```
+
+## AIC Comparison
+
+```{r}
+aic1.1 = -2*(m1.1$loglik[2])+(2*(length(m1.1$coefficients)))
+aic1.2 = -2*(m2.1$loglik[2])+(2*(length(m2.1$coefficients)))
+aic1.1
+aic1.2
+```
+
+## Splitting the Groups
+
+```{r}
+library(tidyverse)
+team1 = dat2 %>%
+  filter(Group ==0)
+team1
+team2 = dat2 %>%
+  filter(Group ==1)
+team2
+
+
+```
+
+## For Team 1 (Group = 0)
+
+
+```{r}
+result.km2.1 = survfit(Surv(time = team1$t,event = team1$c) ~ team1$Group,data = team1)
+survEst2.1   = result.km2.1$surv
+survTime2.1  =  result.km2.1$time 
+logLogSurvEst2.1 =  log(-log(survEst2.1)) 
+logSurvTime2.1   =  log(survTime2.1)
+dt2.1 = data.frame(logLogSurvEst2.1,logSurvTime2.1,survEst2.1,survTime2.1)
+```
+
+## Comparison with Weibull 
+
+$\log[-\log\hat S(t)]$  versus $t$
+
+```{r}
+
+ggplot(data=dt2.1,(mapping=aes(y=logLogSurvEst2.1,x=logSurvTime2.1)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Comparison with Log-Normal
+
+```{r}
+ggplot(data=dt2.1,(mapping=aes(y=qnorm((survEst2.1),lower.tail = FALSE),x=logSurvTime2.1)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## For Team 2 (Group = 1)
+
+
+```{r}
+result.km2.2 = survfit(Surv(time = team2$t,event = team2$c) ~ team2$Group,data = team2)
+survEst2.2   = result.km2.2$surv
+survTime2.2  =  result.km2.2$time 
+logLogSurvEst2.2 =  log(-log(survEst2.2)) 
+logSurvTime2.2   =  log(survTime2.2)
+dt2.2 = data.frame(logLogSurvEst2.2,logSurvTime2.2,survEst2.2,survTime2.2)
+```
+
+## Comparison with Weibull 
+
+```{r}
+
+ggplot(data=dt2.2,(mapping=aes(y=logLogSurvEst2.2,x=logSurvTime2.2)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+## Comparison with Log-Normal
+
+$\Phi^{-1}(1-\hat S(t))$  versus $\log(t)$
+
+```{r}
+ggplot(data=dt2.2,(mapping=aes(y=qnorm((survEst2.2),lower.tail = FALSE),x=logSurvTime2.2)))+geom_point()+geom_smooth(method="lm",formula=y~x)
+```
+
+
+## Sub-Question 3.4
+
+The log-normal maximum likelihood for separate teams are:
+
+\begin{enumerate}
+  \item Group 1 : Mle = -260.5
+  \item Group 2 : Mle = -191.5
+\end{enumerate}
+
+```{r}
+
+m4.1 = survreg(Surv(time = t,event = c) ~ 1,data = team1,dist = "lognormal")
+summary(m4.1)
+m4.2 = survreg(Surv(time = t,event = c) ~ 1,data = team2,dist = "lognormal")
+summary(m4.2)
+```
+
+
+
+## Compute the median survival from each model (Team)
+
+From the median survival time we see that group 2 exits more quick than group 2 $94<136$.This conclusion can be seen from the survival curves of both groups separately.
+
+```{r}
+
+predict(m4.1, type = "quantile", p = 0.5, newdata = data.frame(1))
+predict(m4.2, type = "quantile", p = 0.5, newdata = data.frame(1))
+
+```
+
+## Retrieve survival curve from model probabilities (Team 1)
+
+```{r}
+surv <- seq(.99, .01, by = -.01)
+t <- predict(m4.1, type = "quantile", p = 1 - surv, newdata = data.frame(1))
+surv_wb <- data.frame(time = t, surv = surv, 
+                      upper = NA, lower = NA, std.err = NA)
+ggsurvplot_df(fit = surv_wb, surv.geom = geom_line)
+```
+
+
+## Retrieve survival curve from model probabilities (Team 2)
+
+
+```{r}
+t2 <- predict(m4.2, type = "quantile", p = 1 - surv, newdata = data.frame(1))
+surv_wb2 <- data.frame(time = t2, surv = surv, 
+                      upper = NA, lower = NA, std.err = NA)
+ggsurvplot_df(fit = surv_wb2, surv.geom = geom_line)
+```
+
+
+
